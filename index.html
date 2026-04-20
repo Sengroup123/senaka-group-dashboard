@@ -533,7 +533,8 @@ html, body {
 
 // ─── CONFIG ───
 const CONFIG_KEY = 'senaka_config';
-let SHEET_ID = localStorage.getItem('18R9Vu3QW__71bTOc9jUi7P9EEUyryusIXDBbN9c52vs') || '';
+// ✅ නිවැරදි
+let SHEET_ID = localStorage.getItem('senaka_sheet_id') || '18R9Vu3QW__71bTOc9jUi7P9EEUyryusIXDBbN9c52vs';
 let API_KEY = localStorage.getItem('senaka_api_key') || '';
 
 // ─── CHART.JS DEFAULTS ───
@@ -560,9 +561,9 @@ const fmtShort = n => {
 // ─── GOOGLE SHEETS FETCH ───
 async function fetchSheet(tabName) {
   if (!SHEET_ID) return null;
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
-  try {
-    const res = await fetch(url);
+ const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}&t=${Date.now()}`;
+try {
+    const res = await fetch(url, { cache: 'no-store' });
     const text = await res.text();
     const json = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}')+1));
     const cols = json.table.cols.map(c => c.label || '');

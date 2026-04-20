@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0e1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Senaka Group">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>SENAKA GROUP — Operations & Finance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   SENAKA GROUP — GLOBAL THEME
+   ═══════════════════════════════════════════ */
+:root {
+  --bg: #0a0e1a;
+  --card: #0f1729;
+  --card-hover: #131d35;
+  --accent: #2563eb;
+  --accent2: #7c3aed;
+  --highlight: #a78bfa;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --border: rgba(124,58,237,0.25);
+  --good: #34d399;
+  --warn: #fbbf24;
+  --critical: #f87171;
+  --idle: #64748b;
+  --info: #3b82f6;
+  --grid: rgba(124,58,237,0.10);
+  --font: Georgia, 'Times New Roman', Times, serif;
+  --radius: 10px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { 
+  font-family: var(--font); background: var(--bg); color: var(--text);
+  min-height: 100vh; overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--accent2); border-radius: 3px; }
+
+/* ─── LOADING SCREEN ─── */
+#loading-screen {
+  position: fixed; inset: 0; z-index: 9999; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity 0.5s;
+}
+#loading-screen.hide { opacity: 0; pointer-events: none; }
+#loading-screen .logo-text { font-size: 28px; font-weight: bold; color: var(--highlight); letter-spacing: 3px; margin-bottom: 20px; }
+#loading-screen .spinner {
+  width: 40px; height: 40px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── TOP BAR ─── */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(10,14,26,0.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px; display: flex; align-items: center; gap: 12px;
+}
+.topbar .hamburger { font-size: 22px; cursor: pointer; color: var(--muted); background: none; border: none; padding: 4px; }
+.topbar .brand { font-size: 15px; font-weight: bold; color: var(--highlight); letter-spacing: 2px; flex: 1; }
+.topbar .freshness-dot { width: 10px; height: 10px; border-radius: 50%; animation: pulse 2s infinite; }
+.topbar .freshness-dot.ok { background: var(--good); }
+.topbar .freshness-dot.stale { background: var(--warn); }
+.topbar .freshness-dot.error { background: var(--critical); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+/* ─── SIDEBAR NAV ─── */
+.sidebar {
+  position: fixed; top: 0; left: -280px; bottom: 0; width: 270px; z-index: 200;
+  background: var(--card); border-right: 1px solid var(--border);
+  transition: left 0.3s ease; overflow-y: auto; padding-top: 60px;
+}
+.sidebar.open { left: 0; }
+.sidebar-overlay {
+  position: fixed; inset: 0; z-index: 150; background: rgba(0,0,0,0.5);
+  display: none; 
+}
+.sidebar-overlay.show { display: block; }
+.sidebar .nav-item {
+  display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+  cursor: pointer; color: var(--muted); border-left: 3px solid transparent;
+  transition: all 0.2s;
+}
+.sidebar .nav-item:hover { background: rgba(37,99,235,0.08); color: var(--text); }
+.sidebar .nav-item.active { color: var(--highlight); border-left-color: var(--accent); background: rgba(37,99,235,0.1); }
+.sidebar .nav-item .icon { font-size: 20px; width: 28px; text-align: center; }
+.sidebar .nav-item .label { font-size: 14px; }
+.sidebar .nav-header { padding: 20px; border-bottom: 1px solid var(--border); }
+.sidebar .nav-header .company { font-size: 16px; font-weight: bold; color: var(--highlight); letter-spacing: 2px; }
+.sidebar .nav-header .address { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+
+/* ─── MAIN CONTENT ─── */
+.main { padding: 60px 12px 80px 12px; }
+.page { display: none; animation: fadeIn 0.3s; }
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ─── PAGE HEADER ─── */
+.page-header { margin-bottom: 16px; }
+.page-header h1 { font-size: 20px; color: var(--text); margin-bottom: 2px; }
+.page-header .subtitle { font-size: 12px; color: var(--muted); }
+.page-header .data-date {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--muted); margin-top: 6px;
+  background: rgba(124,58,237,0.1); padding: 4px 10px; border-radius: 20px;
+}
+
+/* ─── SUMMARY CARDS ROW ─── */
+.summary-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.summary-card {
+  background: var(--card); border: 0.5px solid var(--border); border-radius: var(--radius);
+  padding: 14px; position: relative; overflow: hidden;
+}
+.summary-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.summary-card.blue::before { background: var(--accent); }
+.summary-card.purple::before { background: var(--accent2); }
+.summary-card.green::before { background: var(--good); }
+.summary-card.amber::before { background: var(--warn); }
+.summary-card.red::before { background: var(--critical); }
+.summary-card .sc-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.summary-card .sc-value { font-size: 20px; font-weight: bold; color: var(--text); }
+.summary-card .sc-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+/* ─── CHART CARDS ─── */
+.chart-card {
+  background: var(--card); border: 0.5px solid var(--border); border-radius: var(--radius);
+  padding: 16px; margin-bottom: 14px;
+}
+.chart-card .cc-title { font-size: 13px; color: var(--highlight); margin-bottom: 12px; font-weight: bold; }
+.chart-card canvas { width: 100% !important; max-height: 280px; }
+
+/* ─── DATA TABLE ─── */
+.data-table-wrap { overflow-x: auto; margin-bottom: 14px; }
+.data-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+  background: var(--card); border-radius: var(--radius); overflow: hidden;
+}
+.data-table thead th {
+  background: rgba(37,99,235,0.12); color: var(--highlight); padding: 10px 8px;
+  text-align: left; font-size: 11px; letter-spacing: 0.5px; white-space: nowrap;
+  border-bottom: 1px solid var(--border); position: sticky; top: 0;
+}
+.data-table tbody td {
+  padding: 9px 8px; border-bottom: 1px solid rgba(124,58,237,0.08);
+  color: var(--text); white-space: nowrap;
+}
+.data-table tbody tr { cursor: pointer; transition: background 0.15s; }
+.data-table tbody tr:hover { background: rgba(37,99,235,0.06); }
+.data-table tbody tr.selected { background: rgba(37,99,235,0.15); }
+
+/* ─── STATUS BADGES ─── */
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: bold;
+}
+.badge.good { background: rgba(52,211,153,0.15); color: var(--good); }
+.badge.warn { background: rgba(251,191,36,0.15); color: var(--warn); }
+.badge.critical { background: rgba(248,113,113,0.15); color: var(--critical); }
+.badge.info { background: rgba(59,130,246,0.15); color: var(--info); }
+.badge.idle { background: rgba(100,116,139,0.15); color: var(--idle); }
+
+/* Amount formatting */
+.amt { font-variant-numeric: tabular-nums; }
+.amt.pos { color: var(--good); }
+.amt.neg { color: var(--critical); }
+
+/* ─── FILTER BAR ─── */
+.filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.filter-btn {
+  padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: var(--font);
+  font-size: 12px; cursor: pointer; transition: all 0.2s;
+}
+.filter-btn:hover { border-color: var(--accent); color: var(--text); }
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ─── DETAIL PANEL ─── */
+.detail-panel {
+  background: var(--card); border: 0.5px solid var(--border); border-radius: var(--radius);
+  padding: 16px; margin-bottom: 14px; display: none;
+  border-top: 2px solid var(--accent);
+}
+.detail-panel.show { display: block; animation: fadeIn 0.3s; }
+.detail-panel .dp-title { font-size: 14px; color: var(--highlight); margin-bottom: 10px; font-weight: bold; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.detail-grid .dg-item .dg-label { font-size: 10px; color: var(--muted); }
+.detail-grid .dg-item .dg-value { font-size: 14px; color: var(--text); font-weight: bold; }
+
+/* ─── FUEL TANK ANIMATION ─── */
+.fuel-tank-container { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
+.fuel-tank {
+  width: 70px; text-align: center;
+}
+.fuel-tank .tank-body {
+  width: 50px; height: 100px; margin: 0 auto; border: 2px solid var(--border);
+  border-radius: 6px; position: relative; overflow: hidden; background: rgba(10,14,26,0.5);
+}
+.fuel-tank .tank-fill {
+  position: absolute; bottom: 0; left: 0; right: 0; transition: height 1s ease;
+  border-radius: 0 0 4px 4px;
+}
+.fuel-tank .tank-pct { font-size: 12px; font-weight: bold; color: var(--text); margin-top: 4px; }
+.fuel-tank .tank-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* ─── FRESHNESS BANNER ─── */
+.freshness-banner {
+  background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3);
+  border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px;
+  font-size: 12px; color: var(--warn); display: none;
+}
+.freshness-banner.show { display: flex; align-items: center; gap: 8px; }
+.freshness-banner.critical-banner {
+  background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); color: var(--critical);
+}
+
+/* ─── CONFIG MODAL ─── */
+.config-modal {
+  position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.7);
+  display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.config-modal.show { display: flex; }
+.config-box {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 24px; max-width: 420px; width: 100%;
+}
+.config-box h2 { font-size: 18px; color: var(--highlight); margin-bottom: 16px; }
+.config-box label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.config-box input {
+  width: 100%; padding: 10px; margin-bottom: 14px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  font-family: var(--font); font-size: 13px;
+}
+.config-box .btn-row { display: flex; gap: 8px; }
+.btn-primary {
+  flex: 1; padding: 10px; border-radius: 6px; border: none; background: var(--accent);
+  color: #fff; font-family: var(--font); font-size: 13px; cursor: pointer;
+}
+.btn-secondary {
+  flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-family: var(--font); font-size: 13px; cursor: pointer;
+}
+
+/* ─── BOTTOM NAV (Mobile) ─── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(15,23,41,0.95); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-around; padding: 6px 0 env(safe-area-inset-bottom, 6px) 0;
+}
+.bottom-nav .bn-item {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 4px 8px; cursor: pointer; color: var(--muted); font-size: 18px;
+  transition: color 0.2s; border: none; background: none;
+}
+.bottom-nav .bn-item.active { color: var(--accent); }
+.bottom-nav .bn-item .bn-label { font-size: 9px; font-family: var(--font); }
+
+/* ─── PROGRESS BAR ─── */
+.progress-bar { height: 6px; background: rgba(124,58,237,0.1); border-radius: 3px; overflow: hidden; }
+.progress-bar .fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+
+/* Select dropdown */
+.select-wrap select {
+  padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); font-family: var(--font); font-size: 12px;
+  width: 100%; max-width: 300px; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+}
+
+@media (min-width: 768px) {
+  .main { padding: 60px 24px 24px 24px; max-width: 1100px; margin: 0 auto; }
+  .summary-row { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .bottom-nav { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading-screen">
+  <div class="logo-text">SENAKA GROUP</div>
+  <div class="spinner"></div>
+  <div style="color:var(--muted);font-size:12px;margin-top:16px;">Loading Dashboard…</div>
+</div>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+  <div class="brand">SENAKA GROUP</div>
+  <div class="freshness-dot ok" id="globalFreshness" title="Data freshness"></div>
+  <button class="hamburger" onclick="openConfig()" aria-label="Settings" style="font-size:18px;">⚙</button>
+</div>
+
+<!-- Sidebar -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+<div class="sidebar" id="sidebar">
+  <div class="nav-header">
+    <div class="company">SENAKA GROUP</div>
+    <div class="address">Templeburg Industrial Estate,<br>Stage II, Godagama</div>
+  </div>
+  <div class="nav-item active" data-page="bank" onclick="switchPage('bank')">
+    <span class="icon">🏦</span><span class="label">Bank Position</span>
+  </div>
+  <div class="nav-item" data-page="cash" onclick="switchPage('cash')">
+    <span class="icon">💵</span><span class="label">Cash in Hand</span>
+  </div>
+  <div class="nav-item" data-page="invoices" onclick="switchPage('invoices')">
+    <span class="icon">📄</span><span class="label">Invoice Receivables</span>
+  </div>
+  <div class="nav-item" data-page="loans" onclick="switchPage('loans')">
+    <span class="icon">🏛</span><span class="label">Finance Liability</span>
+  </div>
+  <div class="nav-item" data-page="tenders" onclick="switchPage('tenders')">
+    <span class="icon">🏭</span><span class="label">Tender / Production</span>
+  </div>
+  <div class="nav-item" data-page="vehicles" onclick="switchPage('vehicles')">
+    <span class="icon">🚛</span><span class="label">Vehicle Fleet</span>
+  </div>
+  <div class="nav-item" data-page="fuel" onclick="switchPage('fuel')">
+    <span class="icon">⛽</span><span class="label">Filling Station</span>
+  </div>
+</div>
+
+<!-- Config Modal -->
+<div class="config-modal" id="configModal">
+  <div class="config-box">
+    <h2>⚙ Dashboard Settings</h2>
+    <label>Google Sheet ID</label>
+    <input type="text" id="sheetIdInput" placeholder="Paste your Google Sheet ID here">
+    <div style="font-size:11px;color:var(--muted);margin:-10px 0 14px;">
+      Find this in your sheet URL: docs.google.com/spreadsheets/d/<strong style="color:var(--highlight)">THIS_PART</strong>/edit
+    </div>
+    <label>Google API Key (optional, for private sheets)</label>
+    <input type="text" id="apiKeyInput" placeholder="AIzaSy...">
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="closeConfig()">Cancel</button>
+      <button class="btn-primary" onclick="saveConfig()">Save & Reload</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     PAGE CONTENT AREAS
+     ═══════════════════════════════════════════ -->
+<div class="main">
+
+<!-- ─── PAGE 1: BANK POSITION ─── -->
+<div class="page active" id="page-bank">
+  <div class="page-header">
+    <h1>🏦 Bank Position</h1>
+    <div class="subtitle">Prevailing account balances across all banks</div>
+    <div class="data-date" id="bank-freshness">◉ Loading…</div>
+  </div>
+  <div class="freshness-banner" id="bank-stale-banner">⚠ Some bank data may not be current. Check the Last Updated column.</div>
+  <div class="summary-row" id="bank-summary"></div>
+  <div class="chart-card"><div class="cc-title">Balance by Bank</div><canvas id="bankBarChart"></canvas></div>
+  <div class="chart-card"><div class="cc-title">Account Type Distribution</div><canvas id="bankPieChart"></canvas></div>
+  <div class="chart-card"><div class="cc-title">Credit vs Debit Accounts</div><canvas id="bankCreditDebit"></canvas></div>
+  <div class="data-table-wrap">
+    <table class="data-table" id="bankTable">
+      <thead><tr><th>Bank</th><th>Acc Type</th><th>Account No</th><th>Balance</th><th>Updated</th></tr></thead>
+      <tbody id="bankTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── PAGE 2: CASH IN HAND ─── -->
+<div class="page" id="page-cash">
+  <div class="page-header">
+    <h1>💵 Cash in Hand</h1>
+    <div class="subtitle">Prevailing cash float balances</div>
+    <div class="data-date" id="cash-freshness">◉ Loading…</div>
+  </div>
+  <div class="summary-row" id="cash-summary"></div>
+  <div class="chart-card"><div class="cc-title">Cash Distribution</div><canvas id="cashDonut"></canvas></div>
+  <div class="chart-card"><div class="cc-title">Cash by Location</div><canvas id="cashBarChart"></canvas></div>
+  <div class="data-table-wrap">
+    <table class="data-table" id="cashTable">
+      <thead><tr><th>Cash Float Name</th><th>Balance (Rs.)</th><th>Updated</th></tr></thead>
+      <tbody id="cashTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── PAGE 3: INVOICE RECEIVABLES ─── -->
+<div class="page" id="page-invoices">
+  <div class="page-header">
+    <h1>📄 Invoice Receivables</h1>
+    <div class="subtitle">Outstanding invoice balances & age analysis</div>
+    <div class="data-date" id="inv-freshness">◉ Loading…</div>
+  </div>
+  <div class="summary-row" id="inv-summary"></div>
+  <div class="chart-card"><div class="cc-title">Age Analysis</div><canvas id="invAgeChart"></canvas></div>
+  <div class="chart-card"><div class="cc-title">Receivables by Tender</div><canvas id="invTenderChart"></canvas></div>
+  <div class="detail-panel" id="inv-detail">
+    <div class="dp-title" id="inv-detail-title">Invoice Details</div>
+    <div class="detail-grid" id="inv-detail-grid"></div>
+  </div>
+  <div class="data-table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Invoice#</th><th>Date</th><th>Amount</th><th>Age</th><th>Status</th></tr></thead>
+      <tbody id="invTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── PAGE 4: FINANCE LIABILITY ─── -->
+<div class="page" id="page-loans">
+  <div class="page-header">
+    <h1>🏛 Finance Liability Status</h1>
+    <div class="subtitle">Loan & credit facility positions</div>
+    <div class="data-date" id="loan-freshness">◉ Loading…</div>
+  </div>
+  <div class="summary-row" id="loan-summary"></div>
+  <div class="chart-card"><div class="cc-title">Repayment Progress</div><canvas id="loanRepayChart"></canvas></div>
+  <div class="chart-card"><div class="cc-title">Outstanding by Lender</div><canvas id="loanPieChart"></canvas></div>
+  <div class="detail-panel" id="loan-detail">
+    <div class="dp-title" id="loan-detail-title">Loan Details</div>
+    <div class="detail-grid" id="loan-detail-grid"></div>
+    <div style="margin-top:12px"><div class="cc-title">Repayment Progress</div><div class="progress-bar" style="height:10px;margin-top:6px;"><div class="fill" id="loan-detail-progress" style="background:var(--good);width:0%"></div></div><div style="font-size:11px;color:var(--muted);margin-top:4px" id="loan-detail-pct"></div></div>
+  </div>
+  <div class="data-table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Bank</th><th>Account</th><th>Granted</th><th>Outstanding</th><th>Age</th></tr></thead>
+      <tbody id="loanTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── PAGE 5: TENDER / PRODUCTION ─── -->
+<div class="page" id="page-tenders">
+  <div class="page-header">
+    <h1>🏭 Tender / Production Status</h1>
+    <div class="subtitle">Manufacturing progress by site</div>
+    <div class="data-date" id="tender-freshness">◉ Loading…</div>
+  </div>
+  <div class="filter-bar" id="tenderSiteFilter"></div>
+  <div class="filter-bar" id="tenderStatusFilter"></div>
+  <div class="summary-row" id="tender-summary"></div>
+  <div class="chart-card"><div class="cc-title">Production Progress by Tender</div><canvas id="tenderProgressChart"></canvas></div>
+  <div class="detail-panel" id="tender-detail">
+    <div class="dp-title" id="tender-detail-title">Tender Details</div>
+    <div class="detail-grid" id="tender-detail-grid"></div>
+    <div style="margin-top:12px"><div class="progress-bar" style="height:10px;"><div class="fill" id="tender-detail-progress" style="background:var(--accent);width:0%"></div></div><div style="font-size:11px;color:var(--muted);margin-top:4px" id="tender-detail-pct"></div></div>
+  </div>
+  <div class="data-table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Site</th><th>Tender</th><th>Pole</th><th>Status</th><th>Progress</th></tr></thead>
+      <tbody id="tenderTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── PAGE 6: VEHICLE FLEET ─── -->
+<div class="page" id="page-vehicles">
+  <div class="page-header">
+    <h1>🚛 Vehicle Fleet Operations</h1>
+    <div class="subtitle">Previous day fleet performance</div>
+    <div class="data-date" id="vehicle-freshness">◉ Loading…</div>
+  </div>
+  <div class="select-wrap" style="margin-bottom:14px;">
+    <select id="vehicleSelect" onchange="renderVehicleDetail()">
+      <option value="">— Select Vehicle —</option>
+    </select>
+  </div>
+  <div class="summary-row" id="vehicle-summary"></div>
+  <div class="chart-card"><div class="cc-title">Fleet Distance Comparison</div><canvas id="vehicleDistChart"></canvas></div>
+  <div class="detail-panel" id="vehicle-detail">
+    <div class="dp-title" id="vehicle-detail-title">Vehicle Details</div>
+    <div class="detail-grid" id="vehicle-detail-grid"></div>
+  </div>
+  <div class="chart-card" id="vehicleFuelCard" style="display:none"><div class="cc-title">Fuel Consumption</div><canvas id="vehicleFuelChart"></canvas></div>
+  <div class="data-table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Vehicle</th><th>Distance</th><th>Avg Speed</th><th>Top Speed</th><th>Fuel (L)</th></tr></thead>
+      <tbody id="vehicleTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── PAGE 7: FILLING STATION ─── -->
+<div class="page" id="page-fuel">
+  <div class="page-header">
+    <h1>⛽ Filling Station Operations</h1>
+    <div class="subtitle">Previous day fuel sales & stock position</div>
+    <div class="data-date" id="fuel-freshness">◉ Loading…</div>
+  </div>
+  <div class="summary-row" id="fuel-summary"></div>
+  <div class="fuel-tank-container" id="fuelTanks"></div>
+  <div class="chart-card"><div class="cc-title">Sales by Fuel Type (LKR)</div><canvas id="fuelSalesChart"></canvas></div>
+  <div class="chart-card"><div class="cc-title">Sales Breakdown by Payment</div><canvas id="fuelPaymentChart"></canvas></div>
+  <div class="chart-card"><div class="cc-title">Volume Sold (Litres)</div><canvas id="fuelVolumeChart"></canvas></div>
+  <div class="data-table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Fuel Type</th><th>Sales (L)</th><th>Sales (LKR)</th><th>Stock (L)</th><th>Tank %</th></tr></thead>
+      <tbody id="fuelTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- end main -->
+
+<!-- Bottom Nav -->
+<div class="bottom-nav">
+  <button class="bn-item active" data-page="bank" onclick="switchPage('bank')"><span>🏦</span><span class="bn-label">Bank</span></button>
+  <button class="bn-item" data-page="cash" onclick="switchPage('cash')"><span>💵</span><span class="bn-label">Cash</span></button>
+  <button class="bn-item" data-page="invoices" onclick="switchPage('invoices')"><span>📄</span><span class="bn-label">Invoices</span></button>
+  <button class="bn-item" data-page="loans" onclick="switchPage('loans')"><span>🏛</span><span class="bn-label">Loans</span></button>
+  <button class="bn-item" data-page="tenders" onclick="switchPage('tenders')"><span>🏭</span><span class="bn-label">Tenders</span></button>
+  <button class="bn-item" data-page="vehicles" onclick="switchPage('vehicles')"><span>🚛</span><span class="bn-label">Fleet</span></button>
+  <button class="bn-item" data-page="fuel" onclick="switchPage('fuel')"><span>⛽</span><span class="bn-label">Fuel</span></button>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   SENAKA GROUP DASHBOARD — CORE ENGINE
+   ═══════════════════════════════════════════ */
+
+// ─── CONFIG ───
+const CONFIG_KEY = 'senaka_config';
+let SHEET_ID = localStorage.getItem('senaka_sheet_id') || '';
+let API_KEY = localStorage.getItem('senaka_api_key') || '';
+
+// ─── CHART.JS DEFAULTS ───
+Chart.defaults.color = '#6b7280';
+Chart.defaults.font.family = "Georgia, 'Times New Roman', Times, serif";
+Chart.defaults.font.size = 10;
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+Chart.defaults.plugins.legend.labels.padding = 10;
+const chartInstances = {};
+function destroyChart(id) { if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; } }
+
+// ─── DATA STORE ───
+let DATA = { bank:[], cash:[], invoices:[], loans:[], tenders:[], vehicles:[], fuel:[], freshness:[] };
+
+// ─── CURRENCY FORMATTER ───
+const fmt = n => 'Rs. ' + Number(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtShort = n => {
+  const abs = Math.abs(n);
+  if (abs >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (abs >= 1e3) return (n/1e3).toFixed(0)+'K';
+  return n.toString();
+};
+
+// ─── GOOGLE SHEETS FETCH ───
+async function fetchSheet(tabName) {
+  if (!SHEET_ID) return null;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+    const json = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}')+1));
+    const cols = json.table.cols.map(c => c.label || '');
+    return json.table.rows.map(r => {
+      const obj = {};
+      r.c.forEach((cell, i) => { obj[cols[i]] = cell ? (cell.v !== null ? cell.v : (cell.f || '')) : ''; });
+      return obj;
+    });
+  } catch(e) { console.warn('Fetch error for', tabName, e); return null; }
+}
+
+async function loadAllData() {
+  const [bank, cash, inv, loans, tenders, vehicles, fuel, freshness] = await Promise.all([
+    fetchSheet('BankPosition'),
+    fetchSheet('CashInHand'),
+    fetchSheet('InvoiceReceivables'),
+    fetchSheet('FinanceLiability'),
+    fetchSheet('TenderProduction'),
+    fetchSheet('VehicleFleet'),
+    fetchSheet('FillingStation'),
+    fetchSheet('DataFreshness')
+  ]);
+  
+  if (bank) DATA.bank = bank;
+  if (cash) DATA.cash = cash;
+  if (inv) DATA.invoices = inv;
+  if (loans) DATA.loans = loans;
+  if (tenders) DATA.tenders = tenders;
+  if (vehicles) DATA.vehicles = vehicles;
+  if (fuel) DATA.fuel = fuel;
+  if (freshness) DATA.freshness = freshness;
+}
+
+// ─── DUMMY DATA (used when no sheet is connected) ───
+function loadDummyData() {
+  DATA.bank = [
+    {BankName:"BOC Corporate",AccountType:"Current",AccountNumber:"0002160632",Amount:2450000,LastUpdated:"2026-04-06"},
+    {BankName:"BOC Corporate",AccountType:"Current",AccountNumber:"0083827037",Amount:-185000,LastUpdated:"2026-04-06"},
+    {BankName:"BOC Independence",AccountType:"Savings",AccountNumber:"79712655",Amount:3120000,LastUpdated:"2026-04-06"},
+    {BankName:"BOC Independence",AccountType:"Current",AccountNumber:"80818733",Amount:890000,LastUpdated:"2026-04-05"},
+    {BankName:"BOC Bambalapitiya",AccountType:"Current",AccountNumber:"81250430",Amount:1560000,LastUpdated:"2026-04-06"},
+    {BankName:"Peoples Bank HQ",AccountType:"Current",AccountNumber:"204100190010383",Amount:4780000,LastUpdated:"2026-04-06"},
+    {BankName:"PB Balangoda (Bata Atha)",AccountType:"Savings",AccountNumber:"017100340010383",Amount:320000,LastUpdated:"2026-04-05"},
+    {BankName:"PB Balangoda (Kanabandiara)",AccountType:"Current",AccountNumber:"017100250010383",Amount:675000,LastUpdated:"2026-04-06"},
+    {BankName:"PB Balangoda (Godagama)",AccountType:"Current",AccountNumber:"017100160010383",Amount:1250000,LastUpdated:"2026-04-06"},
+    {BankName:"PB Balangoda",AccountType:"Current",AccountNumber:"017100700010383",Amount:-95000,LastUpdated:"2026-04-04"},
+    {BankName:"Commercial Balangoda",AccountType:"Current",AccountNumber:"1820025555",Amount:2890000,LastUpdated:"2026-04-06"},
+    {BankName:"Commercial Kohuwala",AccountType:"Current",AccountNumber:"1870029393",Amount:1345000,LastUpdated:"2026-04-06"},
+    {BankName:"DFCC Athurigiriya",AccountType:"Leasing",AccountNumber:"101000145352",Amount:560000,LastUpdated:"2026-04-05"},
+    {BankName:"Sampath Kollupitiya",AccountType:"Loan",AccountNumber:"013410001580",Amount:-2340000,LastUpdated:"2026-04-06"},
+    {BankName:"Sampath Gothatuwa",AccountType:"Current",AccountNumber:"017310000159",Amount:780000,LastUpdated:"2026-04-06"},
+    {BankName:"Seylan Nawala",AccountType:"Loan",AccountNumber:"052030414133001",Amount:-1560000,LastUpdated:"2026-04-05"},
+    {BankName:"Seylan Embilipitiya",AccountType:"Current",AccountNumber:"045004511330001",Amount:435000,LastUpdated:"2026-04-06"},
+    {BankName:"Seylan Nugegoda",AccountType:"Current",AccountNumber:"012002448627001",Amount:920000,LastUpdated:"2026-04-06"}
+  ];
+  // Normalize keys
+  DATA.bank = DATA.bank.map(r => ({
+    'Bank Name': r.BankName||r['Bank Name']||'', 'Account Type': r.AccountType||r['Account Type']||'',
+    'Account Number': r.AccountNumber||r['Account Number']||'', 'Amount': r.Amount||r['Amount']||0,
+    'Last Updated': r.LastUpdated||r['Last Updated']||''
+  }));
+
+  DATA.cash = [
+    {"Cash Float Name":"Head Office Main Cash","Amount":100000,"Last Updated":"2026-04-06"},
+    {"Cash Float Name":"Head Office Petty Cash","Amount":60000,"Last Updated":"2026-04-06"},
+    {"Cash Float Name":"Godagama - Petty Cash","Amount":55000,"Last Updated":"2026-04-05"},
+    {"Cash Float Name":"Kanabandiara - Petty Cash","Amount":31500,"Last Updated":"2026-04-06"},
+    {"Cash Float Name":"Batatha - Petty Cash","Amount":27200,"Last Updated":"2026-04-05"},
+    {"Cash Float Name":"Embilipitiya - Petty Cash","Amount":12450,"Last Updated":"2026-04-04"}
+  ];
+
+  DATA.invoices = [
+    {"Invoice Number":"INV-2026-001","Invoice Date":"2026-01-15","Invoice Amount":3500000,"Age Days":81,"Tender No":"T-2025-045","Pole Type":"9m PSC","Manufactured Location":"Godagama","Tender Qty":150,"Client Ref":"CEB/NW/2025/087"},
+    {"Invoice Number":"INV-2026-002","Invoice Date":"2026-01-28","Invoice Amount":2800000,"Age Days":68,"Tender No":"T-2025-045","Pole Type":"9m PSC","Manufactured Location":"Godagama","Tender Qty":120,"Client Ref":"CEB/NW/2025/087"},
+    {"Invoice Number":"INV-2026-003","Invoice Date":"2026-02-10","Invoice Amount":4200000,"Age Days":55,"Tender No":"T-2025-052","Pole Type":"11m PSC","Manufactured Location":"Kanabandiara","Tender Qty":200,"Client Ref":"CEB/SP/2025/102"},
+    {"Invoice Number":"INV-2026-004","Invoice Date":"2026-02-20","Invoice Amount":1900000,"Age Days":45,"Tender No":"T-2025-052","Pole Type":"11m PSC","Manufactured Location":"Kanabandiara","Tender Qty":80,"Client Ref":"CEB/SP/2025/102"},
+    {"Invoice Number":"INV-2026-005","Invoice Date":"2026-03-01","Invoice Amount":5600000,"Age Days":36,"Tender No":"T-2026-003","Pole Type":"7.5m PSC","Manufactured Location":"Batatha","Tender Qty":300,"Client Ref":"LECO/WP/2026/011"},
+    {"Invoice Number":"INV-2026-006","Invoice Date":"2026-03-05","Invoice Amount":3100000,"Age Days":32,"Tender No":"T-2026-003","Pole Type":"7.5m PSC","Manufactured Location":"Batatha","Tender Qty":180,"Client Ref":"LECO/WP/2026/011"},
+    {"Invoice Number":"INV-2026-007","Invoice Date":"2026-03-12","Invoice Amount":2400000,"Age Days":25,"Tender No":"T-2026-007","Pole Type":"9m PSC","Manufactured Location":"Embilipitiya","Tender Qty":100,"Client Ref":"CEB/UVA/2026/015"},
+    {"Invoice Number":"INV-2026-008","Invoice Date":"2026-03-18","Invoice Amount":6800000,"Age Days":19,"Tender No":"T-2026-007","Pole Type":"9m PSC","Manufactured Location":"Embilipitiya","Tender Qty":250,"Client Ref":"CEB/UVA/2026/015"},
+    {"Invoice Number":"INV-2026-009","Invoice Date":"2026-03-25","Invoice Amount":1500000,"Age Days":12,"Tender No":"T-2026-010","Pole Type":"11m PSC","Manufactured Location":"Godagama","Tender Qty":60,"Client Ref":"CEB/CP/2026/022"},
+    {"Invoice Number":"INV-2026-010","Invoice Date":"2026-04-01","Invoice Amount":4100000,"Age Days":5,"Tender No":"T-2026-010","Pole Type":"11m PSC","Manufactured Location":"Godagama","Tender Qty":175,"Client Ref":"CEB/CP/2026/022"}
+  ];
+
+  DATA.loans = [
+    {"Bank Name":"Sampath Kollupitiya","Loan Account No":"013410001580","Loan Granted Amount":15000000,"Granted Date":"2024-03-15","Age Days":753,"Capital Outstanding":9800000,"Monthly Installment":425000,"Loan Type":"Term Loan"},
+    {"Bank Name":"Seylan Nawala","Loan Account No":"052030414133001","Loan Granted Amount":8000000,"Granted Date":"2024-08-20","Age Days":595,"Capital Outstanding":5600000,"Monthly Installment":280000,"Loan Type":"Term Loan"},
+    {"Bank Name":"DFCC Athurigiriya","Loan Account No":"101000145352","Loan Granted Amount":12000000,"Granted Date":"2025-01-10","Age Days":452,"Capital Outstanding":10200000,"Monthly Installment":350000,"Loan Type":"Leasing"},
+    {"Bank Name":"BOC Corporate","Loan Account No":"0083827037-LN","Loan Granted Amount":20000000,"Granted Date":"2023-11-01","Age Days":888,"Capital Outstanding":8500000,"Monthly Installment":520000,"Loan Type":"Term Loan"},
+    {"Bank Name":"Commercial Balangoda","Loan Account No":"1820025555-OD","Loan Granted Amount":5000000,"Granted Date":"2025-06-01","Age Days":310,"Capital Outstanding":3200000,"Monthly Installment":0,"Loan Type":"Overdraft"},
+    {"Bank Name":"Peoples Bank HQ","Loan Account No":"204100190010383-LN","Loan Granted Amount":10000000,"Granted Date":"2025-02-28","Age Days":403,"Capital Outstanding":7800000,"Monthly Installment":310000,"Loan Type":"Term Loan"}
+  ];
+
+  DATA.tenders = [
+    {"Site Name":"Kanabandiara","Tender No":"T-2025-045","Pole Type":"9m PSC","Tender Status":"Completed","Tender Qty":500,"Production Start Date":"2025-06-01","Total Qty Casted":500,"Balance To Cast":0,"Remaining Days":0},
+    {"Site Name":"Kanabandiara","Tender No":"T-2025-052","Pole Type":"11m PSC","Tender Status":"On-Going","Tender Qty":400,"Production Start Date":"2025-11-15","Total Qty Casted":280,"Balance To Cast":120,"Remaining Days":45},
+    {"Site Name":"Batatha","Tender No":"T-2026-003","Pole Type":"7.5m PSC","Tender Status":"On-Going","Tender Qty":600,"Production Start Date":"2026-01-10","Total Qty Casted":480,"Balance To Cast":120,"Remaining Days":30},
+    {"Site Name":"Batatha","Tender No":"T-2025-038","Pole Type":"9m PSC","Tender Status":"Completed","Tender Qty":350,"Production Start Date":"2025-04-20","Total Qty Casted":350,"Balance To Cast":0,"Remaining Days":0},
+    {"Site Name":"Embilipitiya","Tender No":"T-2026-007","Pole Type":"9m PSC","Tender Status":"On-Going","Tender Qty":450,"Production Start Date":"2026-02-01","Total Qty Casted":350,"Balance To Cast":100,"Remaining Days":25},
+    {"Site Name":"Embilipitiya","Tender No":"T-2026-012","Pole Type":"11m PSC","Tender Status":"On-Going","Tender Qty":300,"Production Start Date":"2026-03-10","Total Qty Casted":90,"Balance To Cast":210,"Remaining Days":60},
+    {"Site Name":"Godagama","Tender No":"T-2026-010","Pole Type":"11m PSC","Tender Status":"On-Going","Tender Qty":550,"Production Start Date":"2026-02-20","Total Qty Casted":235,"Balance To Cast":315,"Remaining Days":75},
+    {"Site Name":"Godagama","Tender No":"T-2025-041","Pole Type":"7.5m PSC","Tender Status":"Completed","Tender Qty":800,"Production Start Date":"2025-05-01","Total Qty Casted":800,"Balance To Cast":0,"Remaining Days":0},
+    {"Site Name":"Godagama","Tender No":"T-2026-015","Pole Type":"9m PSC","Tender Status":"On-Going","Tender Qty":200,"Production Start Date":"2026-03-25","Total Qty Casted":40,"Balance To Cast":160,"Remaining Days":55}
+  ];
+
+  DATA.vehicles = [
+    {"Vehicle Number":"LY-1350","Total Distance (km)":185,"Avg Speed (km/h)":42,"Top Speed (km/h)":78,"Start Location":"Godagama","End Location":"Colombo","Total Fuel Consumed (L)":28.5,"Fuel Mileage (km/l)":6.5,"Movement Start":"06:15","Movement End":"18:30","Total Movement Duration":"10h 12m","Total Stoppage Duration":"2h 03m","Fuel Tank Capacity":100,"Start Fuel Level":"82%","End Fuel Level":"45%"},
+    {"Vehicle Number":"LP-6000","Total Distance (km)":210,"Avg Speed (km/h)":38,"Top Speed (km/h)":85,"Start Location":"Balangoda","End Location":"Ratnapura","Total Fuel Consumed (L)":35.0,"Fuel Mileage (km/l)":6.0,"Movement Start":"06:00","Movement End":"17:45","Total Movement Duration":"9h 30m","Total Stoppage Duration":"2h 15m","Fuel Tank Capacity":100,"Start Fuel Level":"90%","End Fuel Level":"48%"},
+    {"Vehicle Number":"LY-0825","Total Distance (km)":142,"Avg Speed (km/h)":35,"Top Speed (km/h)":72,"Start Location":"Embilipitiya","End Location":"Kanabandiara","Total Fuel Consumed (L)":22.8,"Fuel Mileage (km/l)":6.2,"Movement Start":"06:20","Movement End":"16:10","Total Movement Duration":"8h 15m","Total Stoppage Duration":"1h 35m","Fuel Tank Capacity":100,"Start Fuel Level":"75%","End Fuel Level":"38%"},
+    {"Vehicle Number":"LY-4623","Total Distance (km)":298,"Avg Speed (km/h)":45,"Top Speed (km/h)":92,"Start Location":"Colombo","End Location":"Godagama","Total Fuel Consumed (L)":42.6,"Fuel Mileage (km/l)":7.0,"Movement Start":"05:45","Movement End":"19:00","Total Movement Duration":"11h 45m","Total Stoppage Duration":"1h 30m","Fuel Tank Capacity":100,"Start Fuel Level":"95%","End Fuel Level":"32%"},
+    {"Vehicle Number":"LO-1244","Total Distance (km)":95,"Avg Speed (km/h)":28,"Top Speed (km/h)":65,"Start Location":"Batatha","End Location":"Batatha","Total Fuel Consumed (L)":18.2,"Fuel Mileage (km/l)":5.2,"Movement Start":"07:00","Movement End":"15:30","Total Movement Duration":"6h 20m","Total Stoppage Duration":"2h 10m","Fuel Tank Capacity":100,"Start Fuel Level":"60%","End Fuel Level":"35%"},
+    {"Vehicle Number":"ZA-7508","Total Distance (km)":167,"Avg Speed (km/h)":40,"Top Speed (km/h)":80,"Start Location":"Nugegoda","End Location":"Embilipitiya","Total Fuel Consumed (L)":30.1,"Fuel Mileage (km/l)":5.5,"Movement Start":"06:10","Movement End":"17:20","Total Movement Duration":"9h 05m","Total Stoppage Duration":"2h 05m","Fuel Tank Capacity":100,"Start Fuel Level":"85%","End Fuel Level":"42%"},
+    {"Vehicle Number":"LP-5019","Total Distance (km)":220,"Avg Speed (km/h)":44,"Top Speed (km/h)":88,"Start Location":"Godagama","End Location":"Balangoda","Total Fuel Consumed (L)":33.8,"Fuel Mileage (km/l)":6.5,"Movement Start":"05:50","Movement End":"18:15","Total Movement Duration":"10h 35m","Total Stoppage Duration":"1h 50m","Fuel Tank Capacity":100,"Start Fuel Level":"88%","End Fuel Level":"40%"},
+    {"Vehicle Number":"ZB-1244","Total Distance (km)":130,"Avg Speed (km/h)":32,"Top Speed (km/h)":70,"Start Location":"Kanabandiara","End Location":"Godagama","Total Fuel Consumed (L)":24.5,"Fuel Mileage (km/l)":5.3,"Movement Start":"06:30","Movement End":"16:45","Total Movement Duration":"8h 00m","Total Stoppage Duration":"2h 15m","Fuel Tank Capacity":100,"Start Fuel Level":"70%","End Fuel Level":"35%"},
+    {"Vehicle Number":"LI-5153","Total Distance (km)":175,"Avg Speed (km/h)":39,"Top Speed (km/h)":76,"Start Location":"Ratnapura","End Location":"Colombo","Total Fuel Consumed (L)":29.2,"Fuel Mileage (km/l)":6.0,"Movement Start":"06:05","Movement End":"17:50","Total Movement Duration":"9h 40m","Total Stoppage Duration":"2h 05m","Fuel Tank Capacity":100,"Start Fuel Level":"80%","End Fuel Level":"38%"},
+    {"Vehicle Number":"LN-8269","Total Distance (km)":88,"Avg Speed (km/h)":26,"Top Speed (km/h)":58,"Start Location":"Embilipitiya","End Location":"Embilipitiya","Total Fuel Consumed (L)":16.8,"Fuel Mileage (km/l)":5.2,"Movement Start":"07:15","Movement End":"15:00","Total Movement Duration":"5h 30m","Total Stoppage Duration":"2h 15m","Fuel Tank Capacity":100,"Start Fuel Level":"55%","End Fuel Level":"30%"},
+    {"Vehicle Number":"LN-9291","Total Distance (km)":245,"Avg Speed (km/h)":43,"Top Speed (km/h)":90,"Start Location":"Colombo","End Location":"Balangoda","Total Fuel Consumed (L)":38.3,"Fuel Mileage (km/l)":6.4,"Movement Start":"05:30","Movement End":"18:45","Total Movement Duration":"11h 00m","Total Stoppage Duration":"2h 15m","Fuel Tank Capacity":100,"Start Fuel Level":"92%","End Fuel Level":"35%"},
+    {"Vehicle Number":"PA-5203","Total Distance (km)":310,"Avg Speed (km/h)":48,"Top Speed (km/h)":95,"Start Location":"Godagama","End Location":"Colombo","Total Fuel Consumed (L)":55.4,"Fuel Mileage (km/l)":5.6,"Movement Start":"05:00","Movement End":"19:30","Total Movement Duration":"12h 15m","Total Stoppage Duration":"2h 15m","Fuel Tank Capacity":200,"Start Fuel Level":"85%","End Fuel Level":"42%"},
+    {"Vehicle Number":"LY-1602","Total Distance (km)":155,"Avg Speed (km/h)":36,"Top Speed (km/h)":74,"Start Location":"Batatha","End Location":"Nugegoda","Total Fuel Consumed (L)":26.7,"Fuel Mileage (km/l)":5.8,"Movement Start":"06:25","Movement End":"17:10","Total Movement Duration":"8h 45m","Total Stoppage Duration":"2h 00m","Fuel Tank Capacity":100,"Start Fuel Level":"78%","End Fuel Level":"40%"},
+    {"Vehicle Number":"LI-7143","Total Distance (km)":120,"Avg Speed (km/h)":30,"Top Speed (km/h)":68,"Start Location":"Kanabandiara","End Location":"Embilipitiya","Total Fuel Consumed (L)":21.4,"Fuel Mileage (km/l)":5.6,"Movement Start":"06:45","Movement End":"16:00","Total Movement Duration":"7h 00m","Total Stoppage Duration":"2h 15m","Fuel Tank Capacity":100,"Start Fuel Level":"65%","End Fuel Level":"30%"}
+  ];
+
+  DATA.fuel = [
+    {"Fuel Type":"Petrol 92","Opening Stock (L)":4200,"Receipts (L)":0,"Sales (L)":1850,"Closing Stock (L)":2350,"Sales LKR":677100,"Cash Sales LKR":270840,"Card Sales LKR":142000,"Bank Transfer LKR":67710,"Credit Sales LKR":196550,"Tank Capacity (L)":10000,"Last Updated":"2026-04-06"},
+    {"Fuel Type":"Diesel","Opening Stock (L)":8500,"Receipts (L)":5000,"Sales (L)":2400,"Closing Stock (L)":11100,"Sales LKR":796800,"Cash Sales LKR":318720,"Card Sales LKR":159360,"Bank Transfer LKR":95616,"Credit Sales LKR":223104,"Tank Capacity (L)":15000,"Last Updated":"2026-04-06"},
+    {"Fuel Type":"Euro 3","Opening Stock (L)":3100,"Receipts (L)":0,"Sales (L)":980,"Closing Stock (L)":2120,"Sales LKR":389060,"Cash Sales LKR":155624,"Card Sales LKR":77812,"Bank Transfer LKR":46687,"Credit Sales LKR":108937,"Tank Capacity (L)":8000,"Last Updated":"2026-04-05"},
+    {"Fuel Type":"Extra Mile","Opening Stock (L)":1800,"Receipts (L)":2000,"Sales (L)":650,"Closing Stock (L)":3150,"Sales LKR":271700,"Cash Sales LKR":108680,"Card Sales LKR":54340,"Bank Transfer LKR":32604,"Credit Sales LKR":76076,"Tank Capacity (L)":5000,"Last Updated":"2026-04-06"}
+  ];
+
+  DATA.freshness = [
+    {"Page Name":"Bank Position","Data Owner":"Accounts Dept","Last Updated":"2026-04-06 08:45","Status":"Up to Date"},
+    {"Page Name":"Cash in Hand","Data Owner":"Cashier","Last Updated":"2026-04-05 09:20","Status":"Stale - 1 Day"},
+    {"Page Name":"Invoice Receivables","Data Owner":"Billing Dept","Last Updated":"2026-04-06 09:55","Status":"Up to Date"},
+    {"Page Name":"Finance Liability","Data Owner":"Finance Manager","Last Updated":"2026-04-06 08:00","Status":"Up to Date"},
+    {"Page Name":"Tender Production","Data Owner":"Production Manager","Last Updated":"2026-04-06 10:05","Status":"Up to Date"},
+    {"Page Name":"Vehicle Fleet","Data Owner":"Transport Dept","Last Updated":"2026-04-04 07:50","Status":"Stale - 2 Days"},
+    {"Page Name":"Filling Station","Data Owner":"Station Manager","Last Updated":"2026-04-05 07:10","Status":"Stale - 1 Day"}
+  ];
+}
+
+// ─── KEY ACCESSOR (handles both Google Sheet and dummy key names) ───
+function g(row, ...keys) {
+  for (const k of keys) { if (row[k] !== undefined && row[k] !== '') return row[k]; }
+  return '';
+}
+function gn(row, ...keys) { return Number(g(row, ...keys)) || 0; }
+
+// ═══════════════════════════════════════════
+// RENDER FUNCTIONS
+// ═══════════════════════════════════════════
+
+function renderBank() {
+  const d = DATA.bank;
+  if (!d.length) return;
+  const total = d.reduce((s,r) => s + gn(r,'Amount'), 0);
+  const credit = d.filter(r => gn(r,'Amount') > 0).reduce((s,r) => s + gn(r,'Amount'), 0);
+  const debit = d.filter(r => gn(r,'Amount') < 0).reduce((s,r) => s + gn(r,'Amount'), 0);
+  const numAccounts = d.length;
+  
+  document.getElementById('bank-summary').innerHTML = `
+    <div class="summary-card blue"><div class="sc-label">Net Bank Position</div><div class="sc-value amt ${total>=0?'pos':'neg'}">${fmt(total)}</div><div class="sc-sub">${numAccounts} accounts</div></div>
+    <div class="summary-card green"><div class="sc-label">Total Credit</div><div class="sc-value amt pos">${fmt(credit)}</div></div>
+    <div class="summary-card red"><div class="sc-label">Total Debit</div><div class="sc-value amt neg">${fmt(debit)}</div></div>
+  `;
+
+  // Table
+  document.getElementById('bankTableBody').innerHTML = d.map(r => {
+    const amt = gn(r,'Amount');
+    return `<tr><td>${g(r,'Bank Name','BankName')}</td><td>${g(r,'Account Type','AccountType')}</td><td style="font-size:10px">${g(r,'Account Number','AccountNumber')}</td><td class="amt ${amt>=0?'pos':'neg'}">${fmt(amt)}</td><td style="font-size:10px">${g(r,'Last Updated','LastUpdated')}</td></tr>`;
+  }).join('');
+
+  // Group by bank parent
+  const bankGroups = {};
+  d.forEach(r => {
+    const name = g(r,'Bank Name','BankName').split(' ')[0]; // First word as group
+    bankGroups[name] = (bankGroups[name]||0) + gn(r,'Amount');
+  });
+
+  // Bar chart
+  destroyChart('bankBarChart');
+  chartInstances['bankBarChart'] = new Chart(document.getElementById('bankBarChart'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(bankGroups),
+      datasets: [{
+        data: Object.values(bankGroups),
+        backgroundColor: Object.values(bankGroups).map(v => v >= 0 ? 'rgba(52,211,153,0.7)' : 'rgba(248,113,113,0.7)'),
+        borderRadius: 4
+      }]
+    },
+    options: { plugins:{legend:{display:false}}, scales:{y:{grid:{color:'rgba(124,58,237,0.1)'},ticks:{callback:v=>fmtShort(v)}},x:{grid:{display:false}}}}
+  });
+
+  // Pie by account type
+  const typeGroups = {};
+  d.forEach(r => { const t = g(r,'Account Type','AccountType'); typeGroups[t] = (typeGroups[t]||0) + Math.abs(gn(r,'Amount')); });
+  destroyChart('bankPieChart');
+  chartInstances['bankPieChart'] = new Chart(document.getElementById('bankPieChart'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(typeGroups),
+      datasets: [{ data: Object.values(typeGroups), backgroundColor: ['#2563eb','#7c3aed','#34d399','#fbbf24','#f87171'], borderWidth: 0 }]
+    },
+    options: { cutout: '65%', plugins:{legend:{position:'bottom'}} }
+  });
+
+  // Credit vs Debit
+  destroyChart('bankCreditDebit');
+  chartInstances['bankCreditDebit'] = new Chart(document.getElementById('bankCreditDebit'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Credit Balances','Debit Balances'],
+      datasets: [{ data: [credit, Math.abs(debit)], backgroundColor: ['#34d399','#f87171'], borderWidth: 0 }]
+    },
+    options: { cutout: '65%', plugins:{legend:{position:'bottom'}} }
+  });
+
+  document.getElementById('bank-freshness').innerHTML = '◉ As at ' + (g(d[0],'Last Updated','LastUpdated')||'Today');
+}
+
+function renderCash() {
+  const d = DATA.cash;
+  if (!d.length) return;
+  const total = d.reduce((s,r) => s + gn(r,'Amount'), 0);
+
+  document.getElementById('cash-summary').innerHTML = `
+    <div class="summary-card purple"><div class="sc-label">Total Cash in Hand</div><div class="sc-value amt pos">${fmt(total)}</div><div class="sc-sub">${d.length} floats</div></div>
+    <div class="summary-card green"><div class="sc-label">Largest Float</div><div class="sc-value amt">${fmt(Math.max(...d.map(r=>gn(r,'Amount'))))}</div></div>
+  `;
+
+  document.getElementById('cashTableBody').innerHTML = d.map(r =>
+    `<tr><td>${g(r,'Cash Float Name')}</td><td class="amt pos">${fmt(gn(r,'Amount'))}</td><td style="font-size:10px">${g(r,'Last Updated')}</td></tr>`
+  ).join('');
+
+  destroyChart('cashDonut');
+  chartInstances['cashDonut'] = new Chart(document.getElementById('cashDonut'), {
+    type: 'doughnut',
+    data: { labels: d.map(r=>g(r,'Cash Float Name')), datasets: [{ data: d.map(r=>gn(r,'Amount')), backgroundColor:['#2563eb','#7c3aed','#34d399','#fbbf24','#f87171','#3b82f6'], borderWidth:0 }] },
+    options: { cutout:'60%', plugins:{legend:{position:'bottom'}} }
+  });
+
+  destroyChart('cashBarChart');
+  chartInstances['cashBarChart'] = new Chart(document.getElementById('cashBarChart'), {
+    type: 'bar',
+    data: { labels: d.map(r=>g(r,'Cash Float Name').replace(/ - | /g,'\n')), datasets: [{ data: d.map(r=>gn(r,'Amount')), backgroundColor:'rgba(167,139,250,0.6)', borderRadius:4 }] },
+    options: { indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{grid:{color:'rgba(124,58,237,0.1)'},ticks:{callback:v=>fmtShort(v)}},y:{grid:{display:false}}}}
+  });
+
+  document.getElementById('cash-freshness').innerHTML = '◉ As at Today';
+}
+
+function renderInvoices() {
+  const d = DATA.invoices;
+  if (!d.length) return;
+  const total = d.reduce((s,r) => s + gn(r,'Invoice Amount'), 0);
+  const ages = {current:0, '30d':0, '60d':0, '90d':0};
+  d.forEach(r => {
+    const age = gn(r,'Age Days');
+    const amt = gn(r,'Invoice Amount');
+    if (age <= 30) ages.current += amt;
+    else if (age <= 60) ages['30d'] += amt;
+    else if (age <= 90) ages['60d'] += amt;
+    else ages['90d'] += amt;
+  });
+
+  document.getElementById('inv-summary').innerHTML = `
+    <div class="summary-card blue"><div class="sc-label">Total Receivables</div><div class="sc-value">${fmt(total)}</div><div class="sc-sub">${d.length} invoices</div></div>
+    <div class="summary-card green"><div class="sc-label">0-30 Days</div><div class="sc-value">${fmt(ages.current)}</div></div>
+    <div class="summary-card amber"><div class="sc-label">31-60 Days</div><div class="sc-value">${fmt(ages['30d'])}</div></div>
+    <div class="summary-card red"><div class="sc-label">60+ Days</div><div class="sc-value">${fmt(ages['60d']+ages['90d'])}</div></div>
+  `;
+
+  document.getElementById('invTableBody').innerHTML = d.map((r,i) => {
+    const age = gn(r,'Age Days');
+    const badge = age>60?'critical':age>30?'warn':'good';
+    const label = age>60?'Overdue':age>30?'Aging':'Current';
+    return `<tr onclick="showInvoiceDetail(${i})"><td>${g(r,'Invoice Number')}</td><td>${g(r,'Invoice Date')}</td><td class="amt">${fmt(gn(r,'Invoice Amount'))}</td><td>${age}d</td><td><span class="badge ${badge}">${label}</span></td></tr>`;
+  }).join('');
+
+  // Age chart
+  destroyChart('invAgeChart');
+  chartInstances['invAgeChart'] = new Chart(document.getElementById('invAgeChart'), {
+    type: 'bar',
+    data: { labels:['0-30 Days','31-60 Days','61-90 Days','90+ Days'], datasets:[{data:[ages.current,ages['30d'],ages['60d'],ages['90d']],backgroundColor:['#34d399','#fbbf24','#f87171','#ef4444'],borderRadius:4}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(124,58,237,0.1)'},ticks:{callback:v=>fmtShort(v)}},x:{grid:{display:false}}}}
+  });
+
+  // By tender
+  const tenderGroups = {};
+  d.forEach(r => { const t = g(r,'Tender No'); tenderGroups[t] = (tenderGroups[t]||0) + gn(r,'Invoice Amount'); });
+  destroyChart('invTenderChart');
+  chartInstances['invTenderChart'] = new Chart(document.getElementById('invTenderChart'), {
+    type: 'doughnut',
+    data: { labels:Object.keys(tenderGroups), datasets:[{data:Object.values(tenderGroups),backgroundColor:['#2563eb','#7c3aed','#34d399','#fbbf24','#f87171'],borderWidth:0}]},
+    options:{cutout:'60%',plugins:{legend:{position:'bottom'}}}
+  });
+
+  document.getElementById('inv-freshness').innerHTML = '◉ As at Today';
+}
+
+function showInvoiceDetail(i) {
+  const r = DATA.invoices[i];
+  const panel = document.getElementById('inv-detail');
+  document.getElementById('inv-detail-title').textContent = g(r,'Invoice Number') + ' — Details';
+  document.getElementById('inv-detail-grid').innerHTML = [
+    ['Tender No', g(r,'Tender No')], ['Pole Type', g(r,'Pole Type')],
+    ['Mfg Location', g(r,'Manufactured Location')], ['Tender Qty', g(r,'Tender Qty')],
+    ['Client Ref', g(r,'Client Ref')], ['Age', gn(r,'Age Days')+' days'],
+    ['Invoice Amount', fmt(gn(r,'Invoice Amount'))], ['Invoice Date', g(r,'Invoice Date')]
+  ].map(([l,v]) => `<div class="dg-item"><div class="dg-label">${l}</div><div class="dg-value">${v}</div></div>`).join('');
+  panel.classList.add('show');
+}
+
+function renderLoans() {
+  const d = DATA.loans;
+  if (!d.length) return;
+  const totalGranted = d.reduce((s,r) => s + gn(r,'Loan Granted Amount'), 0);
+  const totalOutstanding = d.reduce((s,r) => s + gn(r,'Capital Outstanding'), 0);
+  const totalRepaid = totalGranted - totalOutstanding;
+
+  document.getElementById('loan-summary').innerHTML = `
+    <div class="summary-card red"><div class="sc-label">Total Outstanding</div><div class="sc-value">${fmt(totalOutstanding)}</div></div>
+    <div class="summary-card blue"><div class="sc-label">Total Granted</div><div class="sc-value">${fmt(totalGranted)}</div></div>
+    <div class="summary-card green"><div class="sc-label">Total Repaid</div><div class="sc-value">${fmt(totalRepaid)}</div><div class="sc-sub">${((totalRepaid/totalGranted)*100).toFixed(1)}% repaid</div></div>
+  `;
+
+  document.getElementById('loanTableBody').innerHTML = d.map((r,i) =>
+    `<tr onclick="showLoanDetail(${i})"><td>${g(r,'Bank Name')}</td><td style="font-size:10px">${g(r,'Loan Account No')}</td><td class="amt">${fmt(gn(r,'Loan Granted Amount'))}</td><td class="amt neg">${fmt(gn(r,'Capital Outstanding'))}</td><td>${gn(r,'Age Days')}d</td></tr>`
+  ).join('');
+
+  // Repayment progress
+  destroyChart('loanRepayChart');
+  chartInstances['loanRepayChart'] = new Chart(document.getElementById('loanRepayChart'), {
+    type: 'bar',
+    data: {
+      labels: d.map(r=>g(r,'Bank Name')),
+      datasets: [
+        { label:'Repaid', data: d.map(r=>gn(r,'Loan Granted Amount')-gn(r,'Capital Outstanding')), backgroundColor:'rgba(52,211,153,0.6)', borderRadius:4 },
+        { label:'Outstanding', data: d.map(r=>gn(r,'Capital Outstanding')), backgroundColor:'rgba(248,113,113,0.6)', borderRadius:4 }
+      ]
+    },
+    options:{plugins:{legend:{position:'top'}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:'rgba(124,58,237,0.1)'},ticks:{callback:v=>fmtShort(v)}}}}
+  });
+
+  destroyChart('loanPieChart');
+  chartInstances['loanPieChart'] = new Chart(document.getElementById('loanPieChart'), {
+    type: 'doughnut',
+    data: { labels:d.map(r=>g(r,'Bank Name')), datasets:[{data:d.map(r=>gn(r,'Capital Outstanding')),backgroundColor:['#2563eb','#7c3aed','#34d399','#fbbf24','#f87171','#3b82f6'],borderWidth:0}]},
+    options:{cutout:'60%',plugins:{legend:{position:'bottom'}}}
+  });
+
+  document.getElementById('loan-freshness').innerHTML = '◉ As at Today';
+}
+
+function showLoanDetail(i) {
+  const r = DATA.loans[i];
+  const granted = gn(r,'Loan Granted Amount');
+  const outstanding = gn(r,'Capital Outstanding');
+  const repaid = granted - outstanding;
+  const pct = ((repaid/granted)*100).toFixed(1);
+  const panel = document.getElementById('loan-detail');
+  document.getElementById('loan-detail-title').textContent = g(r,'Bank Name') + ' — Loan Details';
+  document.getElementById('loan-detail-grid').innerHTML = [
+    ['Loan Account', g(r,'Loan Account No')], ['Loan Type', g(r,'Loan Type')],
+    ['Granted Amount', fmt(granted)], ['Granted Date', g(r,'Granted Date')],
+    ['Outstanding', fmt(outstanding)], ['Installment', fmt(gn(r,'Monthly Installment'))],
+    ['Total Repaid', fmt(repaid)], ['Age', gn(r,'Age Days')+' days']
+  ].map(([l,v]) => `<div class="dg-item"><div class="dg-label">${l}</div><div class="dg-value">${v}</div></div>`).join('');
+  document.getElementById('loan-detail-progress').style.width = pct+'%';
+  document.getElementById('loan-detail-pct').textContent = pct+'% repaid';
+  panel.classList.add('show');
+}
+
+// ─── TENDERS ───
+let tenderSiteFilter = 'All';
+let tenderStatusFilter = 'All';
+
+function renderTenders() {
+  const d = DATA.tenders;
+  if (!d.length) return;
+  
+  const sites = ['All', ...new Set(d.map(r=>g(r,'Site Name')))];
+  document.getElementById('tenderSiteFilter').innerHTML = sites.map(s =>
+    `<button class="filter-btn ${s===tenderSiteFilter?'active':''}" onclick="tenderSiteFilter='${s}';renderTenders()">${s}</button>`
+  ).join('');
+  
+  const statuses = ['All','On-Going','Completed'];
+  document.getElementById('tenderStatusFilter').innerHTML = statuses.map(s =>
+    `<button class="filter-btn ${s===tenderStatusFilter?'active':''}" onclick="tenderStatusFilter='${s}';renderTenders()">${s}</button>`
+  ).join('');
+
+  const filtered = d.filter(r => 
+    (tenderSiteFilter==='All' || g(r,'Site Name')===tenderSiteFilter) &&
+    (tenderStatusFilter==='All' || g(r,'Tender Status')===tenderStatusFilter)
+  );
+
+  const totalQty = filtered.reduce((s,r) => s + gn(r,'Tender Qty'), 0);
+  const totalCasted = filtered.reduce((s,r) => s + gn(r,'Total Qty Casted'), 0);
+
+  document.getElementById('tender-summary').innerHTML = `
+    <div class="summary-card blue"><div class="sc-label">Total Tender Qty</div><div class="sc-value">${totalQty.toLocaleString()}</div></div>
+    <div class="summary-card green"><div class="sc-label">Total Casted</div><div class="sc-value">${totalCasted.toLocaleString()}</div><div class="sc-sub">${totalQty?((totalCasted/totalQty)*100).toFixed(0):'0'}%</div></div>
+    <div class="summary-card amber"><div class="sc-label">Balance</div><div class="sc-value">${(totalQty-totalCasted).toLocaleString()}</div></div>
+  `;
+
+  document.getElementById('tenderTableBody').innerHTML = filtered.map((r,i) => {
+    const pct = gn(r,'Tender Qty') ? ((gn(r,'Total Qty Casted')/gn(r,'Tender Qty'))*100).toFixed(0) : 0;
+    const status = g(r,'Tender Status');
+    const badge = status==='Completed'?'good':'info';
+    return `<tr onclick="showTenderDetail(${d.indexOf(r)})"><td>${g(r,'Site Name')}</td><td>${g(r,'Tender No')}</td><td>${g(r,'Pole Type')}</td><td><span class="badge ${badge}">${status}</span></td><td><div class="progress-bar" style="width:80px;display:inline-block;vertical-align:middle"><div class="fill" style="width:${pct}%;background:${status==='Completed'?'var(--good)':'var(--accent)'}"></div></div> ${pct}%</td></tr>`;
+  }).join('');
+
+  // Progress chart
+  destroyChart('tenderProgressChart');
+  chartInstances['tenderProgressChart'] = new Chart(document.getElementById('tenderProgressChart'), {
+    type: 'bar',
+    data: {
+      labels: filtered.map(r=>g(r,'Tender No')),
+      datasets: [
+        { label:'Casted', data:filtered.map(r=>gn(r,'Total Qty Casted')), backgroundColor:'rgba(52,211,153,0.7)', borderRadius:4 },
+        { label:'Remaining', data:filtered.map(r=>gn(r,'Balance To Cast')), backgroundColor:'rgba(100,116,139,0.4)', borderRadius:4 }
+      ]
+    },
+    options:{plugins:{legend:{position:'top'}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:'rgba(124,58,237,0.1)'}}}}
+  });
+
+  document.getElementById('tender-freshness').innerHTML = '◉ As at Today';
+}
+
+function showTenderDetail(i) {
+  const r = DATA.tenders[i];
+  const pct = gn(r,'Tender Qty') ? ((gn(r,'Total Qty Casted')/gn(r,'Tender Qty'))*100).toFixed(1) : 0;
+  const panel = document.getElementById('tender-detail');
+  document.getElementById('tender-detail-title').textContent = g(r,'Tender No') + ' — ' + g(r,'Site Name');
+  document.getElementById('tender-detail-grid').innerHTML = [
+    ['Pole Type', g(r,'Pole Type')], ['Status', g(r,'Tender Status')],
+    ['Tender Qty', gn(r,'Tender Qty')], ['Casted', gn(r,'Total Qty Casted')],
+    ['Balance', gn(r,'Balance To Cast')], ['Remaining Days', gn(r,'Remaining Days')],
+    ['Start Date', g(r,'Production Start Date')], ['Site', g(r,'Site Name')]
+  ].map(([l,v]) => `<div class="dg-item"><div class="dg-label">${l}</div><div class="dg-value">${v}</div></div>`).join('');
+  document.getElementById('tender-detail-progress').style.width = pct+'%';
+  document.getElementById('tender-detail-pct').textContent = pct+'% complete';
+  panel.classList.add('show');
+}
+
+// ─── VEHICLES ───
+function renderVehicles() {
+  const d = DATA.vehicles;
+  if (!d.length) return;
+  
+  const sel = document.getElementById('vehicleSelect');
+  if (sel.options.length <= 1) {
+    d.forEach(r => { const o = document.createElement('option'); o.value = g(r,'Vehicle Number'); o.textContent = g(r,'Vehicle Number'); sel.appendChild(o); });
+  }
+
+  const totalDist = d.reduce((s,r) => s + gn(r,'Total Distance (km)'), 0);
+  const totalFuel = d.reduce((s,r) => s + gn(r,'Total Fuel Consumed (L)'), 0);
+  const avgMileage = totalDist / totalFuel;
+
+  document.getElementById('vehicle-summary').innerHTML = `
+    <div class="summary-card blue"><div class="sc-label">Fleet Distance</div><div class="sc-value">${totalDist.toLocaleString()} km</div><div class="sc-sub">${d.length} vehicles</div></div>
+    <div class="summary-card purple"><div class="sc-label">Total Fuel</div><div class="sc-value">${totalFuel.toFixed(0)} L</div></div>
+    <div class="summary-card green"><div class="sc-label">Avg Mileage</div><div class="sc-value">${avgMileage.toFixed(1)} km/L</div></div>
+  `;
+
+  document.getElementById('vehicleTableBody').innerHTML = d.map(r =>
+    `<tr onclick="document.getElementById('vehicleSelect').value='${g(r,'Vehicle Number')}';renderVehicleDetail()"><td>${g(r,'Vehicle Number')}</td><td>${gn(r,'Total Distance (km)')} km</td><td>${gn(r,'Avg Speed (km/h)')} km/h</td><td>${gn(r,'Top Speed (km/h)')} km/h</td><td>${gn(r,'Total Fuel Consumed (L)')} L</td></tr>`
+  ).join('');
+
+  // Distance chart
+  destroyChart('vehicleDistChart');
+  chartInstances['vehicleDistChart'] = new Chart(document.getElementById('vehicleDistChart'), {
+    type: 'bar',
+    data: { labels:d.map(r=>g(r,'Vehicle Number')), datasets:[{data:d.map(r=>gn(r,'Total Distance (km)')),backgroundColor:'rgba(37,99,235,0.6)',borderRadius:4}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(124,58,237,0.1)'}},x:{grid:{display:false}}}}
+  });
+
+  document.getElementById('vehicle-freshness').innerHTML = '◉ Previous Day (2026-04-05)';
+}
+
+function renderVehicleDetail() {
+  const vn = document.getElementById('vehicleSelect').value;
+  const panel = document.getElementById('vehicle-detail');
+  const fuelCard = document.getElementById('vehicleFuelCard');
+  if (!vn) { panel.classList.remove('show'); fuelCard.style.display='none'; return; }
+  
+  const r = DATA.vehicles.find(v => g(v,'Vehicle Number') === vn);
+  if (!r) return;
+
+  document.getElementById('vehicle-detail-title').textContent = vn + ' — Details';
+  document.getElementById('vehicle-detail-grid').innerHTML = [
+    ['Distance', gn(r,'Total Distance (km)')+' km'], ['Avg Speed', gn(r,'Avg Speed (km/h)')+' km/h'],
+    ['Top Speed', gn(r,'Top Speed (km/h)')+' km/h'], ['Fuel Consumed', gn(r,'Total Fuel Consumed (L)')+' L'],
+    ['Mileage', gn(r,'Fuel Mileage (km/l)')+' km/L'], ['Start', g(r,'Start Location')],
+    ['End', g(r,'End Location')], ['Movement', g(r,'Total Movement Duration')],
+    ['Stoppage', g(r,'Total Stoppage Duration')], ['Start Fuel', g(r,'Start Fuel Level')],
+    ['End Fuel', g(r,'End Fuel Level')], ['Tank Capacity', gn(r,'Fuel Tank Capacity')+' L']
+  ].map(([l,v]) => `<div class="dg-item"><div class="dg-label">${l}</div><div class="dg-value">${v}</div></div>`).join('');
+  panel.classList.add('show');
+
+  // Fuel chart for selected vehicle
+  fuelCard.style.display = 'block';
+  destroyChart('vehicleFuelChart');
+  const startPct = parseInt(g(r,'Start Fuel Level'))||0;
+  const endPct = parseInt(g(r,'End Fuel Level'))||0;
+  chartInstances['vehicleFuelChart'] = new Chart(document.getElementById('vehicleFuelChart'), {
+    type: 'bar',
+    data: { labels:['Start Fuel %','End Fuel %','Consumed (L)'], datasets:[{data:[startPct,endPct,gn(r,'Total Fuel Consumed (L)')],backgroundColor:['#34d399','#f87171','#fbbf24'],borderRadius:4}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(124,58,237,0.1)'}},x:{grid:{display:false}}}}
+  });
+}
+
+// ─── FUEL STATION ───
+function renderFuel() {
+  const d = DATA.fuel;
+  if (!d.length) return;
+  const totalSalesLKR = d.reduce((s,r) => s + gn(r,'Sales LKR'), 0);
+  const totalLitres = d.reduce((s,r) => s + gn(r,'Sales (L)','Sales'), 0);
+
+  document.getElementById('fuel-summary').innerHTML = `
+    <div class="summary-card blue"><div class="sc-label">Total Sales</div><div class="sc-value">${fmt(totalSalesLKR)}</div></div>
+    <div class="summary-card purple"><div class="sc-label">Volume Sold</div><div class="sc-value">${totalLitres.toLocaleString()} L</div></div>
+    <div class="summary-card green"><div class="sc-label">Fuel Types</div><div class="sc-value">${d.length}</div></div>
+  `;
+
+  // Animated fuel tanks
+  document.getElementById('fuelTanks').innerHTML = d.map(r => {
+    const closing = gn(r,'Closing Stock (L)');
+    const cap = gn(r,'Tank Capacity (L)');
+    const pct = cap ? ((closing/cap)*100).toFixed(0) : 0;
+    const color = pct > 50 ? '#34d399' : pct > 25 ? '#fbbf24' : '#f87171';
+    return `<div class="fuel-tank"><div class="tank-body"><div class="tank-fill" style="height:${pct}%;background:${color};opacity:0.7"></div></div><div class="tank-pct">${pct}%</div><div class="tank-label">${g(r,'Fuel Type')}</div></div>`;
+  }).join('');
+
+  document.getElementById('fuelTableBody').innerHTML = d.map(r => {
+    const pct = gn(r,'Tank Capacity (L)') ? ((gn(r,'Closing Stock (L)')/gn(r,'Tank Capacity (L)'))*100).toFixed(0) : 0;
+    return `<tr><td>${g(r,'Fuel Type')}</td><td>${gn(r,'Sales (L)','Sales').toLocaleString()}</td><td>${fmt(gn(r,'Sales LKR'))}</td><td>${gn(r,'Closing Stock (L)').toLocaleString()}</td><td><div class="progress-bar" style="width:60px;display:inline-block;vertical-align:middle"><div class="fill" style="width:${pct}%;background:${pct>50?'var(--good)':pct>25?'var(--warn)':'var(--critical)'}"></div></div> ${pct}%</td></tr>`;
+  }).join('');
+
+  // Sales chart
+  destroyChart('fuelSalesChart');
+  chartInstances['fuelSalesChart'] = new Chart(document.getElementById('fuelSalesChart'), {
+    type: 'bar',
+    data: { labels:d.map(r=>g(r,'Fuel Type')), datasets:[{data:d.map(r=>gn(r,'Sales LKR')),backgroundColor:['#2563eb','#7c3aed','#34d399','#fbbf24'],borderRadius:4}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(124,58,237,0.1)'},ticks:{callback:v=>fmtShort(v)}},x:{grid:{display:false}}}}
+  });
+
+  // Payment breakdown
+  const cashTotal = d.reduce((s,r) => s + gn(r,'Cash Sales LKR'), 0);
+  const cardTotal = d.reduce((s,r) => s + gn(r,'Card Sales LKR'), 0);
+  const bankTotal = d.reduce((s,r) => s + gn(r,'Bank Transfer LKR'), 0);
+  const creditTotal = d.reduce((s,r) => s + gn(r,'Credit Sales LKR'), 0);
+  destroyChart('fuelPaymentChart');
+  chartInstances['fuelPaymentChart'] = new Chart(document.getElementById('fuelPaymentChart'), {
+    type: 'doughnut',
+    data: { labels:['Cash','Card','Bank Transfer','Credit'], datasets:[{data:[cashTotal,cardTotal,bankTotal,creditTotal],backgroundColor:['#34d399','#2563eb','#7c3aed','#f87171'],borderWidth:0}]},
+    options:{cutout:'60%',plugins:{legend:{position:'bottom'}}}
+  });
+
+  // Volume chart
+  destroyChart('fuelVolumeChart');
+  chartInstances['fuelVolumeChart'] = new Chart(document.getElementById('fuelVolumeChart'), {
+    type: 'bar',
+    data: { labels:d.map(r=>g(r,'Fuel Type')), datasets:[{data:d.map(r=>gn(r,'Sales (L)','Sales')),backgroundColor:'rgba(167,139,250,0.6)',borderRadius:4}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(124,58,237,0.1)'}},x:{grid:{display:false}}}}
+  });
+
+  document.getElementById('fuel-freshness').innerHTML = '◉ Previous Day (2026-04-05)';
+}
+
+// ═══════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page===page));
+  document.querySelectorAll('.bn-item').forEach(n => n.classList.toggle('active', n.dataset.page===page));
+  toggleSidebar(true);
+  // Hide detail panels
+  document.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('show'));
+}
+
+function toggleSidebar(forceClose) {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebarOverlay');
+  if (forceClose === true || sb.classList.contains('open')) {
+    sb.classList.remove('open'); ov.classList.remove('show');
+  } else {
+    sb.classList.add('open'); ov.classList.add('show');
+  }
+}
+
+function openConfig() { document.getElementById('configModal').classList.add('show'); document.getElementById('sheetIdInput').value = SHEET_ID; document.getElementById('apiKeyInput').value = API_KEY; }
+function closeConfig() { document.getElementById('configModal').classList.remove('show'); }
+function saveConfig() {
+  SHEET_ID = document.getElementById('sheetIdInput').value.trim();
+  API_KEY = document.getElementById('apiKeyInput').value.trim();
+  localStorage.setItem('senaka_sheet_id', SHEET_ID);
+  localStorage.setItem('senaka_api_key', API_KEY);
+  closeConfig();
+  init();
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+async function init() {
+  if (SHEET_ID) {
+    await loadAllData();
+  } else {
+    loadDummyData();
+  }
+  
+  renderBank();
+  renderCash();
+  renderInvoices();
+  renderLoans();
+  renderTenders();
+  renderVehicles();
+  renderFuel();
+
+  document.getElementById('loading-screen').classList.add('hide');
+  setTimeout(() => { document.getElementById('loading-screen').style.display = 'none'; }, 600);
+}
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+init();
+</script>
+</body>
+</html>

@@ -533,7 +533,8 @@ html, body {
 
 // ─── CONFIG ───
 const CONFIG_KEY = 'senaka_config';
-let SHEET_ID = localStorage.getItem('senaka_sheet_id') || '';
+// ✅ නිවැරදි
+let SHEET_ID = localStorage.getItem('senaka_sheet_id') || '18R9Vu3QW__71bTOc9jUi7P9EEUyryusIXDBbN9c52vs';
 let API_KEY = localStorage.getItem('senaka_api_key') || '';
 
 // ─── CHART.JS DEFAULTS ───
@@ -560,22 +561,15 @@ const fmtShort = n => {
 // ─── GOOGLE SHEETS FETCH ───
 async function fetchSheet(tabName) {
   if (!SHEET_ID) return null;
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
-  try {
-    const res = await fetch(url);
+ const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}&t=${Date.now()}`;
+try {
+    const res = await fetch(url, { cache: 'no-store' });
     const text = await res.text();
     const json = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}')+1));
     const cols = json.table.cols.map(c => c.label || '');
     return json.table.rows.map(r => {
       const obj = {};
-      r.c.forEach((cell, i) => {
-        if (!cell || cell.v === null) { obj[cols[i]] = cell && cell.f ? cell.f : ''; return; }
-        if (typeof cell.v === 'string' && cell.v.startsWith('Date(')) {
-          const parts = cell.v.replace('Date(','').replace(')','').split(',').map(Number);
-          const y = parts[0], m = String(parts[1]+1).padStart(2,'0'), d = String(parts[2]).padStart(2,'0');
-          obj[cols[i]] = y+'-'+m+'-'+d;
-        } else { obj[cols[i]] = cell.v; }
-      });
+      r.c.forEach((cell, i) => { obj[cols[i]] = cell ? (cell.v !== null ? cell.v : (cell.f || '')) : ''; });
       return obj;
     });
   } catch(e) { console.warn('Fetch error for', tabName, e); return null; }
@@ -818,18 +812,7 @@ function renderCash() {
     options: { indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{grid:{color:'rgba(124,58,237,0.1)'},ticks:{callback:v=>fmtShort(v)}},y:{grid:{display:false}}}}
   });
 
-  // Derive the Last Update Month from the actual CashInHand data
-  const cashDates = d.map(r => g(r,'Last Updated')).filter(Boolean);
-  if (cashDates.length) {
-    // Find the most recent Last Updated date across all cash floats
-    const latestDate = cashDates.reduce((latest, cur) => {
-      const d1 = new Date(latest), d2 = new Date(cur);
-      return d2 > d1 ? cur : latest;
-    });
-    document.getElementById('cash-freshness').innerHTML = '◉ Last Updated: ' + latestDate;
-  } else {
-    document.getElementById('cash-freshness').innerHTML = '◉ As at Today';
-  }
+  document.getElementById('cash-freshness').innerHTML = '◉ As at Today';
 }
 
 function renderInvoices() {

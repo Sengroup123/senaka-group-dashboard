@@ -568,7 +568,14 @@ async function fetchSheet(tabName) {
     const cols = json.table.cols.map(c => c.label || '');
     return json.table.rows.map(r => {
       const obj = {};
-      r.c.forEach((cell, i) => { obj[cols[i]] = cell ? (cell.v !== null ? cell.v : (cell.f || '')) : ''; });
+      r.c.forEach((cell, i) => {
+        if (!cell || cell.v === null) { obj[cols[i]] = cell && cell.f ? cell.f : ''; return; }
+        if (typeof cell.v === 'string' && cell.v.startsWith('Date(')) {
+          const parts = cell.v.replace('Date(','').replace(')','').split(',').map(Number);
+          const y = parts[0], m = String(parts[1]+1).padStart(2,'0'), d = String(parts[2]).padStart(2,'0');
+          obj[cols[i]] = y+'-'+m+'-'+d;
+        } else { obj[cols[i]] = cell.v; }
+      });
       return obj;
     });
   } catch(e) { console.warn('Fetch error for', tabName, e); return null; }
